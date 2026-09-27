@@ -42,6 +42,8 @@ class ImportCallsTest extends TestCase
             [new \DateTime('2026-08-24 09:00:00'), '6/2/1405', 'خانم چطردور', 'فروغی( شخص)', '0912 111 2233', 'حقیقی', 'تهران', '*', 'سایت', 'بی پاسخ', '-', '-', ''],
             // no result: stays done without a follow-up
             [new \DateTime('2026-08-24 10:00:00'), '6/2/1405', 'خانم چطردوز', 'سلمانی(نا واضح اسم شرکت رو گفتند)', '09127253876', 'حقوقی', 'تهران', '*', 'سایت', '', '', '', ''],
+            // the secretary named in the agent column: she took the call, no agent is made for her
+            [new \DateTime('2026-08-26 10:00:00'), '6/4/1405', 'خانم مرادی', 'رحمتی(ایزدی)', '09121110000', 'حقوقی', 'تهران', '*', 'سایت', '', '', '', ''],
             // a landline with an extension: skipped
             [new \DateTime('2026-08-25 10:00:00'), '6/3/1405', 'خانم خاتمی', 'کیانی(درنا دور)', '68235000 داخلی 25', 'حقوقی', 'تهران', '*', 'سایت', '', '', '', ''],
         ];
@@ -54,6 +56,7 @@ class ImportCallsTest extends TestCase
         $writer->close();
 
         User::create(['name' => 'خانم حبیبی', 'email' => 'habibi@test.local', 'password' => 'secret123', 'role' => UserRole::Secretary]);
+        User::create(['name' => 'خانم مرادی', 'email' => 'moradi@test.local', 'password' => 'secret123', 'role' => UserRole::Secretary]);
     }
 
     protected function tearDown(): void
@@ -75,7 +78,7 @@ class ImportCallsTest extends TestCase
     {
         $this->artisan('tamin:import-calls', ['file' => $this->file])->assertSuccessful();
 
-        $this->assertSame(4, Call::count(), 'the landline row is skipped');
+        $this->assertSame(5, Call::count(), 'the landline row is skipped');
         // «صلح‌فام» and «صلح فام» are one agent, «چطردور» and «چطردوز» too
         $this->assertEqualsCanonicalizing(['خانم صلح فام', 'خانم چطردوز'], SalesAgent::pluck('name')->all());
 
@@ -110,6 +113,11 @@ class ImportCallsTest extends TestCase
         $this->assertSame(0, $noResult->calls()->first()->followUps()->count());
         $this->assertSame(0, Call::dueBy(today())->count(), 'nothing lands in today\'s follow-up list');
 
+        $bySecretary = Customer::where('phone', '09121110000')->first()->calls()->first();
+        $this->assertNull($bySecretary->sales_agent_id);
+        $this->assertSame('خانم مرادی', $bySecretary->receiver->name);
+        $this->assertFalse(SalesAgent::where('name', 'like', '%مرادی%')->exists(), 'a secretary is not made a sales agent');
+
         $this->assertStringContainsString('68235000', file_get_contents(storage_path('app/import-skipped.csv')));
     }
 
@@ -118,8 +126,8 @@ class ImportCallsTest extends TestCase
         $this->artisan('tamin:import-calls', ['file' => $this->file])->assertSuccessful();
         $this->artisan('tamin:import-calls', ['file' => $this->file])->assertSuccessful();
 
-        $this->assertSame(4, Call::count());
-        $this->assertSame(4, Customer::count());
+        $this->assertSame(5, Call::count());
+        $this->assertSame(5, Customer::count());
     }
 
     public function test_an_existing_customer_is_reused(): void

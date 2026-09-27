@@ -6,6 +6,7 @@ use App\Enums\AcquisitionSource;
 use App\Enums\CallStatus;
 use App\Enums\CustomerType;
 use App\Enums\NoPurchaseReason;
+use App\Enums\UserRole;
 use App\Models\Call;
 use App\Models\Customer;
 use App\Models\FollowUp;
@@ -96,7 +97,8 @@ class ImportCalls extends Command
         $dry = (bool) $this->option('dry-run');
 
         $this->agents = SalesAgent::all()->keyBy(fn (SalesAgent $agent) => self::key($agent->name));
-        $this->users = User::all();
+        // only secretaries take calls; a manager's surname must not catch an agent's name
+        $this->users = User::where('role', UserRole::Secretary)->get();
 
         DB::beginTransaction();
 
@@ -197,10 +199,16 @@ class ImportCalls extends Command
         // call's receiver, the note has nothing more to say
         $notes = $receiver && preg_match('/^(پاسخ\s*دهند\s*ه\s*:\s*)?(خانم|آقای)?\s*\S+$/u', $text(self::NOTES)) ? '' : $text(self::NOTES);
 
+        // a secretary named in the agent column (خانم مرادی) took the call herself; she is not a
+        // sales agent, so she becomes the receiver and the call has no agent
+        $secretary = $this->receiver($text(self::AGENT));
+        $agent = $secretary ? null : $this->agent($text(self::AGENT));
+        $receiver ??= $secretary;
+
         $call = new Call;
         $call->forceFill([
             'customer_id' => $customer->id,
-            'sales_agent_id' => $this->agent($text(self::AGENT))?->id,
+            'sales_agent_id' => $agent?->id,
             'received_by' => $receiver?->id,
             'request' => self::REQUEST,
             'source' => $source,
