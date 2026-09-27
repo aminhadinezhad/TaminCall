@@ -84,7 +84,7 @@ class CustomerResource extends Resource
             ->visible(fn (): bool => auth()->user()->isManager())
             ->modalHeading(fn (Customer $record): string => 'حذف '.$record->name)
             ->modalDescription('آیا برای انجام این کار مطمئن هستید؟')
-            ->modalSubmitActionLabel('حذف برای همیشه');
+            ->modalSubmitActionLabel('حذف');
     }
 
     /**
