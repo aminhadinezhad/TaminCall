@@ -49,7 +49,7 @@ class DeletedCustomerPickerTest extends TestCase
         $this->assertArrayHasKey($kept->id, $picker->getSearchResults('علی'));
     }
 
-    public function test_an_old_call_still_shows_its_deleted_customer(): void
+    public function test_a_call_shows_its_customer_in_the_picker(): void
     {
         $customer = Customer::create(['name' => 'علی رضایی', 'phone' => '09121234568']);
         $call = Call::create([
@@ -58,9 +58,6 @@ class DeletedCustomerPickerTest extends TestCase
             'request' => 'دستمال کاغذی',
             'follow_up_on' => today(),
         ]);
-        // deleting a customer soft-deletes their calls too; the manager restores the call on its own here
-        $customer->delete();
-        Call::withTrashed()->find($call->id)?->restore();
 
         $picker = $this->customerPicker(Livewire::test(EditCall::class, ['record' => $call->id]));
 

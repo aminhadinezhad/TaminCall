@@ -55,8 +55,6 @@ trait ReadsReportFilters
     {
         return FollowUp::query()
             ->join('calls', 'calls.id', '=', 'follow_ups.call_id')
-            // the join goes round Eloquent, so deleted calls are left out by hand here
-            ->whereNull('calls.deleted_at')
             ->where('follow_ups.answered', true)
             ->whereRaw('follow_ups.id = (select max(f2.id) from follow_ups f2 where f2.call_id = follow_ups.call_id and f2.answered = 1)')
             ->where('calls.created_at', '>=', $this->periodStart())

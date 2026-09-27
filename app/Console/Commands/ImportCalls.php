@@ -162,12 +162,7 @@ class ImportCalls extends Command
 
         $when = $this->callTime($row[self::TIMESTAMP] ?? null, $text(self::DATE));
 
-        $customer = Customer::withTrashed()->where('phone', $phone)->first();
-        if ($customer?->trashed()) {
-            $this->skip($number, $phone, $text(self::CALLER), 'این مشتری در تامین کال حذف شده است');
-
-            return;
-        }
+        $customer = Customer::where('phone', $phone)->first();
 
         if ($customer === null) {
             $customer = $this->newCustomer($text(self::CALLER), $phone, $text(self::TYPE), $when);
@@ -177,7 +172,7 @@ class ImportCalls extends Command
         }
         $this->seenCustomers[$customer->id] = true;
 
-        $already = Call::withTrashed()
+        $already = Call::query()
             ->where('customer_id', $customer->id)
             ->where('request', self::REQUEST)
             ->whereDate('created_at', $when->toDateString())
@@ -456,7 +451,7 @@ class ImportCalls extends Command
             ['کارشناس فروش جدید', $this->counts['agents_new']],
             ['نتیجه پیگیری ثبت شده', $this->counts['follow_ups']],
             ['از قبل وارد شده (رد شد)', $this->counts['already_in']],
-            ['رد شده (شماره نامعتبر یا مشتری حذف شده)', $this->counts['skipped']],
+            ['رد شده (شماره نامعتبر)', $this->counts['skipped']],
         ]);
 
         if ($this->skipped) {

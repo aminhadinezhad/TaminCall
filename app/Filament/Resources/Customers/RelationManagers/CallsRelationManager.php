@@ -29,9 +29,7 @@ class CallsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            // a deleted customer's calls are deleted with them, so their file shows them too
-            ->modifyQueryUsing(fn ($query) => $query->with(['salesAgent', 'result'])
-                ->when($this->getOwnerRecord()->trashed(), fn ($q) => $q->withTrashed()))
+            ->modifyQueryUsing(fn ($query) => $query->with(['salesAgent', 'result']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('created_at')->label('تاریخ')->formatStateUsing(fn ($state): string => Persian::date($state)),

@@ -42,7 +42,7 @@ class SalesAgentResource extends Resource
     /** Only an agent nobody was referred to; one with calls is switched off instead. */
     public static function canDelete($record): bool
     {
-        return (auth()->user()?->isManager() ?? false) && ! $record->calls()->withTrashed()->exists();
+        return (auth()->user()?->isManager() ?? false) && ! $record->calls()->exists();
     }
 
     public static function canDeleteAny(): bool

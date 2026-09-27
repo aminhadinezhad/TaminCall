@@ -20,6 +20,7 @@ use App\Filament\Widgets\AcquisitionSourceChart;
 use App\Filament\Widgets\ReportOverview;
 use App\Models\Call;
 use App\Models\Customer;
+use App\Models\FollowUp;
 use App\Models\SalesAgent;
 use App\Models\User;
 use App\Support\Persian;
@@ -297,64 +298,45 @@ class CallFollowUpTest extends TestCase
             ->assertSee('سایت · ۵۰٪', false);
     }
 
-    public function test_a_deleted_call_leaves_the_reports_but_can_be_brought_back(): void
+    public function test_deleting_a_customer_removes_them_their_calls_and_follow_ups_for_good(): void
     {
         Filament::setCurrentPanel('admin');
         $this->actingAs(User::create(['name' => 'مدیر', 'email' => 'reports@test.local', 'password' => 'secret123', 'role' => UserRole::Manager]));
 
         $kept = $this->makeCall();
         $kept->recordFollowUp(['answered' => true, 'purchased' => true, 'agent_satisfaction' => 5, 'overall_satisfaction' => 5]);
-        $deleted = $this->makeCall();
-        $deleted->recordFollowUp(['answered' => true, 'purchased' => true, 'agent_satisfaction' => 5, 'overall_satisfaction' => 5]);
+        $gone = $this->makeCall();
+        $gone->recordFollowUp(['answered' => true, 'purchased' => true, 'agent_satisfaction' => 5, 'overall_satisfaction' => 5]);
 
         Livewire::test(ReportOverview::class)->assertSee('۲ خرید از ۲ مشتری پیگیری شده', false);
 
-        $deleted->delete();
+        $gone->customer->delete();
 
-        // gone from the lists and from the figures, still in the database
-        $this->assertSame(1, Call::query()->count());
-        $this->assertSame(2, Call::withTrashed()->count());
+        // nothing of theirs is left, in the lists, the database or the figures
+        $this->assertNull(Customer::find($gone->customer_id));
+        $this->assertNull(Call::find($gone->id));
+        $this->assertSame(0, FollowUp::where('call_id', $gone->id)->count());
+        $this->assertSame(1, Call::count());
         Livewire::test(ReportOverview::class)->assertSee('۱ خرید از ۱ مشتری پیگیری شده', false);
-
-        $deleted->restore();
-
-        $this->assertSame(2, Call::query()->count());
-        Livewire::test(ReportOverview::class)->assertSee('۲ خرید از ۲ مشتری پیگیری شده', false);
     }
 
-    public function test_deleting_a_customer_hides_their_calls_and_restoring_brings_them_back(): void
-    {
-        $call = $this->makeCall();
-        $customer = $call->customer;
-
-        $customer->delete();
-
-        $this->assertSame(0, Call::query()->count());
-        $this->assertSame(0, Customer::query()->count());
-        $this->assertNotNull(Call::withTrashed()->find($call->id)->deleted_at);
-
-        $customer->restore();
-
-        $this->assertSame(1, Call::query()->count());
-        $this->assertSame(1, Customer::query()->count());
-    }
-
-    public function test_the_customers_list_hides_deleted_customers_until_their_own_tab(): void
+    public function test_the_customers_list_has_no_bin_and_its_delete_button_removes_for_good(): void
     {
         Filament::setCurrentPanel('admin');
         $this->actingAs(User::create(['name' => 'مدیر', 'email' => 'bin@test.local', 'password' => 'secret123', 'role' => UserRole::Manager]));
 
         $kept = Customer::create(['name' => 'مریم حسینی', 'phone' => '09120001111']);
-        $deleted = Customer::create(['name' => 'رضا باقری', 'phone' => '09120002222']);
-        $deleted->delete();
+        $gone = $this->makeCall()->customer;
 
-        Livewire::test(ListCustomers::class)
-            ->assertCanSeeTableRecords([$kept])
-            ->assertCanNotSeeTableRecords([$deleted]);
+        $list = Livewire::test(ListCustomers::class);
+        $this->assertSame([], $list->instance()->getTabs(), 'no «حذف شده ها» tab');
 
-        Livewire::test(ListCustomers::class, ['activeTab' => 'trashed'])
-            ->assertCanSeeTableRecords([$deleted])
-            ->assertCanNotSeeTableRecords([$kept]);
+        $list->assertCanSeeTableRecords([$kept, $gone])
+            ->callTableAction('delete', $gone)
+            ->assertCanNotSeeTableRecords([$gone]);
+
+        $this->assertNull(Customer::find($gone->id));
+        $this->assertSame(0, Call::where('customer_id', $gone->id)->count());
     }
 
     public function test_an_empty_calls_list_says_why_it_is_empty(): void
@@ -422,18 +404,16 @@ class CallFollowUpTest extends TestCase
         $this->assertTrue($manager->is_active);
     }
 
-    public function test_deleting_and_restoring_are_refused_on_the_server_not_only_hidden(): void
+    public function test_deleting_is_refused_on_the_server_not_only_hidden(): void
     {
         $customer = $this->makeCall()->customer;
 
         $this->actingAs($this->secretary());
         $this->assertFalse(CustomerResource::canDelete($customer));
-        $this->assertFalse(CustomerResource::canRestore($customer));
         $this->assertFalse(CallResource::canDelete($customer->calls()->first()));
 
         $this->actingAs(User::create(['name' => 'مدیر', 'email' => 'rules@test.local', 'password' => 'secret123', 'role' => UserRole::Manager]));
         $this->assertTrue(CustomerResource::canDelete($customer));
-        $this->assertFalse(CustomerResource::canForceDelete($customer), 'nothing is deleted for good');
         $this->assertFalse(CallResource::canDelete($customer->calls()->first()));
         $this->assertFalse(UserResource::canDelete(auth()->user()));
         $this->assertFalse(SalesAgentResource::canDelete($customer->calls()->first()->salesAgent), 'an agent with calls stays');

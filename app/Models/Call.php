@@ -11,14 +11,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable(['customer_id', 'sales_agent_id', 'received_by', 'request', 'source', 'notes', 'status', 'follow_up_on', 'unanswered_attempts'])]
 class Call extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     /** After this many unanswered follow-up calls the customer is marked unreachable. */
     public const MAX_UNANSWERED_ATTEMPTS = 3;
@@ -38,13 +37,9 @@ class Call extends Model
         ];
     }
 
-    /**
-     * With the deleted ones too: a call whose customer is in the bin still has to know whose call it
-     * was, otherwise every page showing it would break on a missing name.
-     */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class)->withTrashed();
+        return $this->belongsTo(Customer::class);
     }
 
     public function salesAgent(): BelongsTo

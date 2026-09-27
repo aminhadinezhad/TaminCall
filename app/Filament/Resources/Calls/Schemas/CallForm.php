@@ -38,14 +38,8 @@ class CallForm
                     ->components([
                         Select::make('customer_id')
                             ->label('مشتری')
-                            // newest first: the customer just added sits at the top of the list.
-                            // Deleted customers are not offered (the call's relation includes them, so they are
-                            // left out here), except the one an existing call already has, so its name still shows.
-                            ->relationship('customer', 'name', fn (EloquentBuilder $query, ?Call $record) => $query
-                                ->where(fn (EloquentBuilder $query) => $query
-                                    ->whereNull($query->qualifyColumn('deleted_at'))
-                                    ->when($record?->customer_id, fn (EloquentBuilder $query, int $id) => $query->orWhere($query->qualifyColumn('id'), $id)))
-                                ->orderByDesc('id'))
+                            // newest first: the customer just added sits at the top of the list
+                            ->relationship('customer', 'name', fn (EloquentBuilder $query) => $query->orderByDesc('id'))
                             ->getOptionLabelFromRecordUsing(fn (Customer $record): string => $record->name.' - '.$record->phone)
                             ->searchable(['name', 'phone', 'company'])
                             ->preload()

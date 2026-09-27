@@ -33,14 +33,11 @@ class AgentPerformanceTable extends TableWidget
         $from = $this->periodStart();
         $lastResult = 'f.answered = 1 and f.id = (select max(f2.id) from follow_ups f2 where f2.call_id = f.call_id and f2.answered = 1)';
 
-        // these count rows straight from the tables, so deleted calls are left out by hand
         $calls = fn () => DB::table('calls')
-            ->whereNull('calls.deleted_at')
             ->whereColumn('calls.sales_agent_id', 'sales_agents.id')
             ->where('calls.created_at', '>=', $from);
         $results = fn () => DB::table('follow_ups as f')
             ->join('calls', 'calls.id', '=', 'f.call_id')
-            ->whereNull('calls.deleted_at')
             ->whereColumn('calls.sales_agent_id', 'sales_agents.id')
             ->where('calls.created_at', '>=', $from)
             ->whereRaw($lastResult);

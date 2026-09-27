@@ -12,7 +12,6 @@ use App\Support\Persian;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\RestoreAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -20,8 +19,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use UnitEnum;
 
 class CustomerResource extends Resource
@@ -60,27 +57,17 @@ class CustomerResource extends Resource
                 TextColumn::make('created_at')->label('اولین تماس')->formatStateUsing(fn ($state): string => Persian::date($state))->sortable()->toggleable(),
             ])
             ->defaultSort('created_at', 'desc')
-            // deleted customers live behind their own tab (see ListCustomers), not behind a filter
             ->recordActions([
                 EditAction::make()->label('پرونده'),
-                // the customer's calls go with them, and come back with them
-                DeleteAction::make()
-                    ->visible(fn (Customer $record): bool => auth()->user()->isManager() && ! $record->trashed()),
-                RestoreAction::make()
-                    ->label('برگرداندن')
-                    ->visible(fn (Customer $record): bool => auth()->user()->isManager() && $record->trashed()),
+                self::deleteAction(DeleteAction::make()),
             ])
             // an empty list says why it is empty and what to do next
-            ->emptyStateIcon(fn (HasTable $livewire): Heroicon => match (true) {
-                filled($livewire->getTableSearch()) => Heroicon::OutlinedMagnifyingGlass,
-                ($livewire->activeTab ?? null) === 'trashed' => Heroicon::OutlinedTrash,
-                default => Heroicon::OutlinedUsers,
-            })
-            ->emptyStateHeading(fn (HasTable $livewire): string => match (true) {
-                filled($livewire->getTableSearch()) => 'نتیجه ای پیدا نشد',
-                ($livewire->activeTab ?? null) === 'trashed' => 'مشتری حذف شده ای نیست',
-                default => 'هنوز مشتری ای ثبت نشده',
-            })
+            ->emptyStateIcon(fn (HasTable $livewire): Heroicon => filled($livewire->getTableSearch())
+                ? Heroicon::OutlinedMagnifyingGlass
+                : Heroicon::OutlinedUsers)
+            ->emptyStateHeading(fn (HasTable $livewire): string => filled($livewire->getTableSearch())
+                ? 'نتیجه ای پیدا نشد'
+                : 'هنوز مشتری ای ثبت نشده')
             // only a search with no match adds a hint under the heading
             ->emptyStateDescription(fn (HasTable $livewire): ?string => filled($livewire->getTableSearch())
                 ? 'با نام، شرکت یا شماره ی دیگری جستجو کنید.'
@@ -88,21 +75,21 @@ class CustomerResource extends Resource
     }
 
     /**
-     * A manager can reach a deleted customer: the «حذف شده ها» tab lists them and their file opens,
-     * which is how they check one before bringing it back. A secretary never sees them.
+     * Deleting a customer is for good: they go with all their calls and follow-ups (see Customer).
+     * The button (in the list and in the customer's file) says so before it is pressed.
      */
-    public static function getEloquentQuery(): Builder
+    public static function deleteAction(DeleteAction $action): DeleteAction
     {
-        $query = parent::getEloquentQuery();
-
-        return auth()->user()?->isManager()
-            ? $query->withoutGlobalScopes([SoftDeletingScope::class])
-            : $query;
+        return $action
+            ->visible(fn (): bool => auth()->user()->isManager())
+            ->modalHeading(fn (Customer $record): string => 'حذف '.$record->name)
+            ->modalDescription('این مشتری با همه تماس ها و پیگیری هایش برای همیشه پاک می شود و برگرداندنی نیست.')
+            ->modalSubmitActionLabel('حذف برای همیشه');
     }
 
     /**
-     * Deleting and restoring customers is a manager's job. Checked here as well as on the buttons,
-     * so no request can do it either; nothing is ever deleted for good.
+     * Deleting customers is a manager's job. Checked here as well as on the buttons, so no request
+     * can do it either.
      */
     public static function canDelete($record): bool
     {
@@ -112,26 +99,6 @@ class CustomerResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->isManager() ?? false;
-    }
-
-    public static function canRestore($record): bool
-    {
-        return auth()->user()?->isManager() ?? false;
-    }
-
-    public static function canRestoreAny(): bool
-    {
-        return auth()->user()?->isManager() ?? false;
-    }
-
-    public static function canForceDelete($record): bool
-    {
-        return false;
-    }
-
-    public static function canForceDeleteAny(): bool
-    {
-        return false;
     }
 
     public static function getRelations(): array
