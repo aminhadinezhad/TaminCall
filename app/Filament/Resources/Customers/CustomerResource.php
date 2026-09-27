@@ -83,7 +83,7 @@ class CustomerResource extends Resource
         return $action
             ->visible(fn (): bool => auth()->user()->isManager())
             ->modalHeading(fn (Customer $record): string => 'حذف '.$record->name)
-            ->modalDescription('این مشتری با همه تماس ها و پیگیری هایش برای همیشه پاک می شود و برگرداندنی نیست.')
+            ->modalDescription('آیا برای انجام این کار مطمئن هستید؟')
             ->modalSubmitActionLabel('حذف برای همیشه');
     }
 
