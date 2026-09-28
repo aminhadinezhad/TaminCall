@@ -46,21 +46,25 @@ class CallsTable
                 // the number sits under the name, so the row fits without a sideways scroll
                 TextColumn::make('customer.name')
                     ->label('مشتری')
-                    ->description(fn (Call $record): string => collect([Persian::digits($record->customer?->phone), $record->customer?->company])->filter()->join(' · '))
+                    ->description(fn (Call $record): string => collect([Persian::digits($record->customer?->numbers()), $record->customer?->company])->filter()->join(' · '))
                     // a search with no digits in it must not fall through to "phone like %%",
                     // which would match every row and look like the search doing nothing
                     ->searchable(query: function (Builder $query, string $search): Builder {
+                        $digits = Customer::digitsOnly($search);
                         $phone = Customer::normalizePhone($search);
 
                         return $query->whereHas('customer', fn (Builder $customer) => $customer
                             ->where('name', 'like', "%{$search}%")
                             ->orWhere('company', 'like', "%{$search}%")
-                            ->when($phone !== '', fn (Builder $c) => $c->orWhere('phone', 'like', "%{$phone}%")));
+                            ->when($phone !== null, fn (Builder $c) => $c->orWhere('phone', 'like', "%{$phone}%"))
+                            ->when($digits !== null, fn (Builder $c) => $c->orWhere('landline', 'like', "%{$digits}%")));
                     }),
 
                 TextColumn::make('customer.phone')
                     ->label('شماره')
+                    ->state(fn (Call $record): ?string => $record->customer?->numbers())
                     ->formatStateUsing(fn ($state): string => Persian::digits($state))
+                    ->placeholder('—')
                     ->copyable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

@@ -49,7 +49,9 @@ class CustomerResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')->label('نام')->searchable()->sortable(),
-                TextColumn::make('phone')->label('شماره')->formatStateUsing(fn ($state): string => Persian::digits($state))->copyable()->searchable(),
+                // both numbers are optional; a missing one shows «—»
+                TextColumn::make('phone')->label('موبایل')->formatStateUsing(fn ($state): string => Persian::digits($state))->placeholder('—')->copyable()->searchable(),
+                TextColumn::make('landline')->label('ثابت')->formatStateUsing(fn ($state): string => Persian::digits($state))->placeholder('—')->copyable()->searchable(),
                 // the badge takes its colour from the enum, the same colour as the slice in the report
                 TextColumn::make('type')->label('نوع مشتری')->badge()->placeholder('—'),
                 TextColumn::make('company')->label('شرکت / سازمان')->placeholder('—')->searchable(),
@@ -119,6 +121,6 @@ class CustomerResource extends Resource
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'phone', 'company'];
+        return ['name', 'phone', 'landline', 'company'];
     }
 }

@@ -53,7 +53,7 @@ class RecordFollowUpAction
             ->color('primary')
             ->visible(fn (Call $record): bool => $record->status === CallStatus::AwaitingFollowUp)
             ->modalHeading(fn (Call $record): string => 'پیگیری با '.$record->customer->name)
-            ->modalDescription(fn (Call $record): string => 'شماره: '.Persian::digits($record->customer->phone)
+            ->modalDescription(fn (Call $record): string => 'شماره: '.(Persian::digits($record->customer->numbers()) ?: '—')
                 .' · کارشناس: '.($record->salesAgent?->name ?? '—')
                 .' · درخواست: '.str($record->request)->limit(80))
             ->modalSubmitActionLabel('ثبت')

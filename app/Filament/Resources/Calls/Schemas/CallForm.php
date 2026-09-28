@@ -12,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -40,8 +41,9 @@ class CallForm
                             ->label('مشتری')
                             // newest first: the customer just added sits at the top of the list
                             ->relationship('customer', 'name', fn (EloquentBuilder $query) => $query->orderByDesc('id'))
-                            ->getOptionLabelFromRecordUsing(fn (Customer $record): string => $record->name.' - '.$record->phone)
-                            ->searchable(['name', 'phone', 'company'])
+                            // a customer with no number is listed by name alone
+                            ->getOptionLabelFromRecordUsing(fn (Customer $record): string => collect([$record->name, $record->numbers()])->filter()->join(' - '))
+                            ->searchable(['name', 'phone', 'landline', 'company'])
                             ->preload()
                             // the cursor starts here on a new call, so typing the name or number is the first key
                             ->autofocus(fn (string $operation): bool => $operation === 'create')
@@ -101,35 +103,14 @@ class CallForm
             TextInput::make('name')
                 ->label('نام و نام خانوادگی')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(255)
+                ->columnSpanFull(),
 
-            TextInput::make('phone')
-                ->label('شماره موبایل')
-                // not ->tel(): its check rejects Persian digits before they are converted below
-                ->inputMode('tel')
-                ->required()
-                ->placeholder('09123456789')
-                ->extraInputAttributes(['dir' => 'ltr'])
-                ->dehydrateStateUsing(fn (?string $state): ?string => Customer::normalizePhone($state))
-                // inside the call form's "new customer" popup the record is the call, not a customer
-                ->rules(fn ($record) => [
-                    function (string $attribute, $value, \Closure $fail) use ($record) {
-                        $record = $record instanceof Customer ? $record : null;
-                        $phone = Customer::normalizePhone($value);
-
-                        if (! preg_match('/^09\d{9}$/', (string) $phone)) {
-                            $fail('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
-
-                            return;
-                        }
-
-                        $taken = Customer::where('phone', $phone)->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))->first();
-
-                        if ($taken) {
-                            $fail("این شماره قبلاً برای «{$taken->name}» ثبت شده است.");
-                        }
-                    },
-                ]),
+            // both numbers are optional: a customer who gives none is still saved, and shows «—»
+            Grid::make(2)->columnSpanFull()->schema([
+                self::mobileField(),
+                self::landlineField(),
+            ]),
 
             ToggleButtons::make('type')
                 ->label('نوع مشتری')
@@ -155,6 +136,72 @@ class CallForm
                 ->label('توضیحات')
                 ->rows(2),
         ];
+    }
+
+    private static function mobileField(): TextInput
+    {
+        return TextInput::make('phone')
+            ->label('شماره موبایل')
+            // not ->tel(): its check rejects Persian digits before they are converted below
+            ->inputMode('tel')
+            ->placeholder('09123456789')
+            ->extraInputAttributes(['dir' => 'ltr'])
+            ->dehydrateStateUsing(fn (?string $state): ?string => Customer::normalizePhone($state))
+            // inside the call form's "new customer" popup the record is the call, not a customer
+            ->rules(fn ($record) => [
+                function (string $attribute, $value, \Closure $fail) use ($record) {
+                    $record = $record instanceof Customer ? $record : null;
+                    $phone = Customer::normalizePhone($value);
+
+                    // optional: only a number that was typed is checked
+                    if ($phone === null) {
+                        return;
+                    }
+
+                    if (! preg_match('/^09\d{9}$/', $phone)) {
+                        $fail('شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.');
+
+                        return;
+                    }
+
+                    $taken = Customer::where('phone', $phone)->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))->first();
+
+                    if ($taken) {
+                        $fail("این شماره قبلاً برای «{$taken->name}» ثبت شده است.");
+                    }
+                },
+            ]);
+    }
+
+    private static function landlineField(): TextInput
+    {
+        return TextInput::make('landline')
+            ->label('شماره ثابت')
+            ->inputMode('tel')
+            ->placeholder('02144001100')
+            ->extraInputAttributes(['dir' => 'ltr'])
+            ->dehydrateStateUsing(fn (?string $state): ?string => Customer::digitsOnly($state))
+            // wrapped, so Filament hands the rule to the validator instead of calling it itself
+            ->rules(fn (): array => [
+                function (string $attribute, $value, \Closure $fail) {
+                    $landline = Customer::digitsOnly($value);
+
+                    if ($landline === null) {
+                        return;
+                    }
+
+                    if (str_starts_with($landline, '09')) {
+                        $fail('این شماره موبایل است؛ آن را در «شماره موبایل» وارد کنید.');
+
+                        return;
+                    }
+
+                    // 8 digits, or 11 with the city code (021...)
+                    if (! preg_match('/^(\d{8}|0\d{10})$/', $landline)) {
+                        $fail('شماره ثابت باید ۸ رقم، یا با کد شهر ۱۱ رقم باشد.');
+                    }
+                },
+            ]);
     }
 
     private static function isLegal(mixed $type): bool
