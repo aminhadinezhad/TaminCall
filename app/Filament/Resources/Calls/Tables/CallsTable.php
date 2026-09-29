@@ -39,11 +39,11 @@ class CallsTable
             ->columns([
                 TextColumn::make('created_at')
                     ->label('تاریخ تماس')
-                    ->visibleFrom('md')
                     ->formatStateUsing(fn ($state): string => Persian::date($state))
                     ->sortable(),
 
-                // the number sits under the name, so the row fits without a sideways scroll
+                // the number sits under the name rather than in a column of its own. Every column
+                // shows on a phone too, as on a computer; there the table scrolls sideways.
                 TextColumn::make('customer.name')
                     ->label('مشتری')
                     ->description(fn (Call $record): string => collect([Persian::digits($record->customer?->numbers()), $record->customer?->company])->filter()->join(' · '))
@@ -70,31 +70,26 @@ class CallsTable
 
                 TextColumn::make('salesAgent.name')
                     ->label('کارشناس فروش')
-                    ->visibleFrom('md')
                     ->placeholder('—'),
 
                 TextColumn::make('request')
                     ->label('درخواست')
-                    ->visibleFrom('lg')
                     ->limit(20)
                     ->tooltip(fn (Call $record): string => $record->request)
                     ->toggleable(),
 
                 TextColumn::make('status')
                     ->label('وضعیت')
-                    ->visibleFrom('md')
                     ->badge(),
 
                 TextColumn::make('follow_up_on')
                     ->label('تاریخ پیگیری')
-                    ->visibleFrom('md')
                     ->formatStateUsing(fn ($state, Call $record): string => $record->status === CallStatus::AwaitingFollowUp ? Persian::date($state) : '—')
                     ->color(fn (Call $record): ?string => $record->status === CallStatus::AwaitingFollowUp && $record->follow_up_on->lt(today()) ? 'danger' : null)
                     ->sortable(),
 
                 IconColumn::make('result.purchased')
                     ->label('خرید کرد؟')
-                    ->visibleFrom('md')
                     ->boolean()
                     ->placeholder('—'),
 
