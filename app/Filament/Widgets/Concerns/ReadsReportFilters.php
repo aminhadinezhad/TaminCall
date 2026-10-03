@@ -50,26 +50,6 @@ trait ReadsReportFilters
             ->when($this->salesAgentId(), fn (Builder $q, int $id) => $q->where('calls.sales_agent_id', $id));
     }
 
-    /**
-     * Calls in callsQuery() referred to a sales agent: the base of every purchase rate. A call
-     * the secretary handled herself (an imported one, with no agent) was never referred.
-     */
-    protected function referralsQuery(): Builder
-    {
-        return $this->callsQuery()->whereNotNull('calls.sales_agent_id');
-    }
-
-    /**
-     * The referred calls whose result is a purchase. Purchase rate = purchasesQuery() over
-     * referralsQuery(): a referral not yet followed up, or never reached, counts as no purchase.
-     */
-    protected function purchasesQuery(): Builder
-    {
-        return $this->resultsQuery()
-            ->whereNotNull('calls.sales_agent_id')
-            ->where('follow_ups.purchased', true);
-    }
-
     /** The result (last answered follow-up) of each call in callsQuery(). */
     protected function resultsQuery(): Builder
     {

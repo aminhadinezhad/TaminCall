@@ -34,11 +34,10 @@ class CustomerTypeChart extends ChartWidget
 
     public function getDescription(): ?string
     {
-        // purchases over referrals, as everywhere in the reports
         $parts = [];
         foreach ($this->figures() as $f) {
-            if ($f['referred'] > 0) {
-                $parts[] = $f['label'].' '.Persian::digits(round($f['purchased'] / $f['referred'] * 100)).'٪';
+            if ($f['reached'] > 0) {
+                $parts[] = $f['label'].' '.Persian::digits(round($f['purchased'] / $f['reached'] * 100)).'٪';
             }
         }
 
@@ -74,22 +73,24 @@ class CustomerTypeChart extends ChartWidget
     }
 
     /**
-     * Per customer type: calls, the referred ones among them, and purchases.
-     *
-     * @return list<array{label: string, color: string, calls: int, referred: int, purchased: int}>
+     * @return list<array{label: string, color: string, calls: int, reached: int, purchased: int}>
      */
     private function figures(): array
     {
-        $byType = fn ($query) => $query
+        $calls = $this->callsQuery()
             ->join('customers', 'customers.id', '=', 'calls.customer_id')
             ->whereNotNull('customers.type')
             ->selectRaw('customers.type as type, count(*) as total')
             ->groupBy('customers.type')
             ->pluck('total', 'type');
 
-        $calls = $byType($this->callsQuery());
-        $referred = $byType($this->referralsQuery());
-        $bought = $byType($this->purchasesQuery());
+        $results = $this->resultsQuery()
+            ->join('customers', 'customers.id', '=', 'calls.customer_id')
+            ->whereNotNull('customers.type')
+            ->selectRaw('customers.type as type, count(*) as reached, sum(case when follow_ups.purchased = 1 then 1 else 0 end) as bought')
+            ->groupBy('customers.type')
+            ->get()
+            ->keyBy('type');
 
         $figures = [];
         foreach (CustomerType::cases() as $type) {
@@ -97,8 +98,8 @@ class CustomerTypeChart extends ChartWidget
                 'label' => $type->getLabel(),
                 'color' => $type->chartColor(),
                 'calls' => (int) ($calls[$type->value] ?? 0),
-                'referred' => (int) ($referred[$type->value] ?? 0),
-                'purchased' => (int) ($bought[$type->value] ?? 0),
+                'reached' => (int) ($results[$type->value]->reached ?? 0),
+                'purchased' => (int) ($results[$type->value]->bought ?? 0),
             ];
         }
 

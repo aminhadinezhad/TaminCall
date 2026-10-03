@@ -34,14 +34,13 @@ class AcquisitionSourceChart extends ChartWidget
 
     public function getDescription(): ?string
     {
-        // purchases over referrals; a source needs three referrals and a purchase to be named
         $best = collect($this->figures())
-            ->filter(fn (array $f): bool => $f['referred'] >= 3 && $f['purchased'] > 0)
-            ->sortByDesc(fn (array $f): float => $f['purchased'] / $f['referred'])
+            ->filter(fn (array $f): bool => $f['reached'] >= 3)
+            ->sortByDesc(fn (array $f): float => $f['purchased'] / $f['reached'])
             ->first();
 
         return $best
-            ? 'بیشترین نرخ خرید: '.$best['label'].' ('.Persian::digits(round($best['purchased'] / $best['referred'] * 100)).'٪ از مشتریان ارجاع شده)'
+            ? 'بیشترین نرخ خرید: '.$best['label'].' ('.Persian::digits(round($best['purchased'] / $best['reached'] * 100)).'٪ از مشتریان پیگیری شده)'
             : 'سهم هر روش از تماس های این بازه';
     }
 
@@ -73,9 +72,9 @@ class AcquisitionSourceChart extends ChartWidget
     }
 
     /**
-     * Per source, in the enum's fixed order: calls, the referred ones among them, and purchases.
+     * Per source, in the enum's fixed order: calls, followed-up customers and purchases.
      *
-     * @return list<array{label: string, color: string, calls: int, referred: int, purchased: int}>
+     * @return list<array{label: string, color: string, calls: int, reached: int, purchased: int}>
      */
     private function figures(): array
     {
@@ -85,17 +84,12 @@ class AcquisitionSourceChart extends ChartWidget
             ->groupBy('calls.source')
             ->pluck('total', 'source');
 
-        $referred = $this->referralsQuery()
+        $results = $this->resultsQuery()
             ->whereNotNull('calls.source')
-            ->selectRaw('calls.source as source, count(*) as total')
+            ->selectRaw('calls.source as source, count(*) as reached, sum(case when follow_ups.purchased = 1 then 1 else 0 end) as bought')
             ->groupBy('calls.source')
-            ->pluck('total', 'source');
-
-        $bought = $this->purchasesQuery()
-            ->whereNotNull('calls.source')
-            ->selectRaw('calls.source as source, count(*) as total')
-            ->groupBy('calls.source')
-            ->pluck('total', 'source');
+            ->get()
+            ->keyBy('source');
 
         $figures = [];
         foreach (AcquisitionSource::cases() as $source) {
@@ -103,8 +97,8 @@ class AcquisitionSourceChart extends ChartWidget
                 'label' => $source->getLabel(),
                 'color' => $source->chartColor(),
                 'calls' => (int) ($calls[$source->value] ?? 0),
-                'referred' => (int) ($referred[$source->value] ?? 0),
-                'purchased' => (int) ($bought[$source->value] ?? 0),
+                'reached' => (int) ($results[$source->value]->reached ?? 0),
+                'purchased' => (int) ($results[$source->value]->bought ?? 0),
             ];
         }
 

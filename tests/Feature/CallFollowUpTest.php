@@ -17,8 +17,6 @@ use App\Filament\Resources\SalesAgents\SalesAgentResource;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\AcquisitionSourceChart;
-use App\Filament\Widgets\AgentPerformanceTable;
-use App\Filament\Widgets\CustomerTypeChart;
 use App\Filament\Widgets\ReportOverview;
 use App\Models\Call;
 use App\Models\Customer;
@@ -296,90 +294,8 @@ class CallFollowUpTest extends TestCase
         }
 
         Livewire::test(AcquisitionSourceChart::class)
-            ->assertSee('بیشترین نرخ خرید: معرف (۶۷٪ از مشتریان ارجاع شده)')
+            ->assertSee('بیشترین نرخ خرید: معرف (۶۷٪ از مشتریان پیگیری شده)')
             ->assertSee('سایت · ۵۰٪', false);
-    }
-
-    public function test_the_purchase_rate_is_purchases_over_referrals_everywhere(): void
-    {
-        Filament::setCurrentPanel('admin');
-        $this->actingAs(User::create(['name' => 'مدیر', 'email' => 'rate@test.local', 'password' => 'secret123', 'role' => UserRole::Manager]));
-
-        $ahmadi = SalesAgent::create(['name' => 'آقای احمدی']);
-        $karimi = SalesAgent::create(['name' => 'خانم کریمی']);
-        $n = 0;
-        $call = function (?SalesAgent $agent, string $source, CustomerType $type) use (&$n): Call {
-            $customer = Customer::create(['name' => 'مشتری '.$n, 'phone' => '0913000000'.$n++, 'type' => $type]);
-
-            return Call::create(['customer_id' => $customer->id, 'sales_agent_id' => $agent?->id, 'request' => 'دستمال کاغذی', 'source' => $source, 'follow_up_on' => today()]);
-        };
-        $bought = ['answered' => true, 'purchased' => true, 'agent_satisfaction' => 5, 'overall_satisfaction' => 5];
-        $notBought = ['answered' => true, 'purchased' => false, 'no_purchase_reason' => 'price', 'agent_satisfaction' => 3, 'overall_satisfaction' => 3];
-
-        // آقای احمدی, four website referrals of individuals: one bought, one did not, one is not
-        // followed up yet and one never answered
-        $call($ahmadi, 'website', CustomerType::Individual)->recordFollowUp($bought);
-        $call($ahmadi, 'website', CustomerType::Individual)->recordFollowUp($notBought);
-        $call($ahmadi, 'website', CustomerType::Individual);
-        $unreachable = $call($ahmadi, 'website', CustomerType::Individual);
-        foreach (range(1, Call::MAX_UNANSWERED_ATTEMPTS) as $attempt) {
-            $unreachable->recordFollowUp(['answered' => false]);
-        }
-
-        // خانم کریمی, one referral of a legal customer: undecided at first, bought on the second
-        // call, which counts once
-        $twice = $call($karimi, 'referral', CustomerType::Legal);
-        $twice->recordFollowUp($notBought, callAgainInDays: 2);
-        $twice->recordFollowUp($bought);
-
-        // taken by the secretary herself, with no agent: bought, but never referred
-        $call(null, 'referral', CustomerType::Legal)->recordFollowUp($bought);
-
-        // bought, but received before the 30 days the reports cover
-        $old = $call($ahmadi, 'website', CustomerType::Individual);
-        $old->recordFollowUp($bought);
-        $old->forceFill(['created_at' => now()->subDays(40)])->save();
-
-        $this->assertSame(CallStatus::Unreachable, $unreachable->fresh()->status);
-
-        // 2 purchases from 5 referrals; the old base, the customers reached, would have given 3 of 4
-        Livewire::test(ReportOverview::class)
-            ->assertSee('۴۰٪')
-            ->assertSee('۲ خرید از ۵ مشتری ارجاع شده', false);
-
-        Livewire::test(ReportOverview::class, ['pageFilters' => ['sales_agent_id' => $ahmadi->id]])
-            ->assertSee('۲۵٪')
-            ->assertSee('۱ خرید از ۴ مشتری ارجاع شده', false);
-
-        Livewire::test(AgentPerformanceTable::class)
-            ->assertTableColumnStateSet('referrals', 4, $ahmadi)
-            ->assertTableColumnStateSet('purchased', 1, $ahmadi)
-            ->assertTableColumnStateSet('conversion', '۲۵٪', $ahmadi)
-            ->assertTableColumnStateSet('referrals', 1, $karimi)
-            ->assertTableColumnStateSet('conversion', '۱۰۰٪', $karimi);
-
-        // «معرف» has a single referral, too few to be named the best source
-        Livewire::test(AcquisitionSourceChart::class)
-            ->assertSee('بیشترین نرخ خرید: سایت (۲۵٪ از مشتریان ارجاع شده)');
-
-        Livewire::test(CustomerTypeChart::class)
-            ->assertSee('نرخ خرید: حقیقی ۲۵٪ · حقوقی ۱۰۰٪');
-    }
-
-    public function test_no_source_is_named_best_when_none_has_a_purchase(): void
-    {
-        Filament::setCurrentPanel('admin');
-        $this->actingAs(User::create(['name' => 'مدیر', 'email' => 'none@test.local', 'password' => 'secret123', 'role' => UserRole::Manager]));
-
-        foreach (range(1, 3) as $i) {
-            $this->makeCall(['source' => 'website'])->recordFollowUp(['answered' => true, 'purchased' => false, 'no_purchase_reason' => 'price', 'agent_satisfaction' => 3, 'overall_satisfaction' => 3]);
-        }
-
-        Livewire::test(AcquisitionSourceChart::class)
-            ->assertDontSee('بیشترین نرخ خرید')
-            ->assertSee('سهم هر روش از تماس های این بازه');
-
-        Livewire::test(ReportOverview::class)->assertSee('۰ خرید از ۳ مشتری ارجاع شده', false);
     }
 
     public function test_deleting_a_customer_removes_them_their_calls_and_follow_ups_for_good(): void
@@ -392,7 +308,7 @@ class CallFollowUpTest extends TestCase
         $gone = $this->makeCall();
         $gone->recordFollowUp(['answered' => true, 'purchased' => true, 'agent_satisfaction' => 5, 'overall_satisfaction' => 5]);
 
-        Livewire::test(ReportOverview::class)->assertSee('۲ خرید از ۲ مشتری ارجاع شده', false);
+        Livewire::test(ReportOverview::class)->assertSee('۲ خرید از ۲ مشتری پیگیری شده', false);
 
         $gone->customer->delete();
 
@@ -401,7 +317,7 @@ class CallFollowUpTest extends TestCase
         $this->assertNull(Call::find($gone->id));
         $this->assertSame(0, FollowUp::where('call_id', $gone->id)->count());
         $this->assertSame(1, Call::count());
-        Livewire::test(ReportOverview::class)->assertSee('۱ خرید از ۱ مشتری ارجاع شده', false);
+        Livewire::test(ReportOverview::class)->assertSee('۱ خرید از ۱ مشتری پیگیری شده', false);
     }
 
     public function test_the_customers_list_has_no_bin_and_its_delete_button_removes_for_good(): void

@@ -34,8 +34,7 @@ class ReportOverview extends StatsOverviewWidget
         $calls = $this->callsQuery()->count();
         $results = $this->resultsQuery();
         $reached = (clone $results)->count();
-        $referrals = $this->referralsQuery()->count();
-        $purchased = $this->purchasesQuery()->count();
+        $purchased = (clone $results)->where('follow_ups.purchased', true)->count();
         $satisfaction = (clone $results)->avg('follow_ups.overall_satisfaction');
 
         $percent = fn (int $part, int $whole): string => $whole > 0 ? Persian::digits(round($part / $whole * 100)).'٪' : '—';
@@ -47,8 +46,8 @@ class ReportOverview extends StatsOverviewWidget
             Stat::make('نتیجه ی ثبت شده', Persian::digits($reached))
                 ->description($calls > 0 ? $percent($reached, $calls).' از تماس ها پیگیری و نتیجه ثبت شد' : 'هنوز تماسی نیست'),
 
-            Stat::make('نرخ خرید', $percent($purchased, $referrals))
-                ->description(Persian::digits($purchased).' خرید از '.Persian::digits($referrals).' مشتری ارجاع شده')
+            Stat::make('نرخ خرید', $percent($purchased, $reached))
+                ->description(Persian::digits($purchased).' خرید از '.Persian::digits($reached).' مشتری پیگیری شده')
                 ->color('success'),
 
             Stat::make('میانگین رضایت کلی', $satisfaction ? Persian::digits(number_format($satisfaction, 1)).' از ۵' : '—')
