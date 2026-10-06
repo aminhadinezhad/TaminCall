@@ -56,9 +56,12 @@ class UserResource extends Resource
         return $schema->components([
             TextInput::make('name')->label('نام')->required()->maxLength(255),
             TextInput::make('email')->label('ایمیل (برای ورود)')->email()->required()->unique(ignoreRecord: true)->extraInputAttributes(['dir' => 'ltr']),
+            // a new password for this user: the browser must not fill in the password it saved for
+            // signing in (it would show it here, behind the eye)
             TextInput::make('password')
                 ->label('رمز عبور')
                 ->password()
+                ->autocomplete('new-password')
                 ->revealable()
                 ->minLength(8)
                 ->required(fn (string $operation): bool => $operation === 'create')
