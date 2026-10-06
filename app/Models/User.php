@@ -41,37 +41,16 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    /** The owner's account: no other manager can take its manager role away or switch it off. */
-    public const OWNER_EMAIL = 'mohammadaminhadinezhad@gmail.com';
-
-    protected static function booted(): void
-    {
-        // anyone else saving the owner's account leaves it an active manager, and its email (which
-        // is what marks the account as theirs) as it was
-        static::saving(function (User $user) {
-            if ($user->exists && $user->isOwner() && ! auth()->user()?->isOwner()) {
-                $user->role = UserRole::Manager;
-                $user->is_active = true;
-                $user->email = $user->getOriginal('email');
-            }
-        });
-    }
-
-    public function isOwner(): bool
-    {
-        return strcasecmp(trim((string) ($this->getOriginal('email') ?? $this->email)), self::OWNER_EMAIL) === 0;
-    }
-
     /**
      * A deactivated account can no longer sign in; its past records keep its name.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_active || $this->isOwner();
+        return $this->is_active;
     }
 
     public function isManager(): bool
     {
-        return $this->role === UserRole::Manager || $this->isOwner();
+        return $this->role === UserRole::Manager;
     }
 }
