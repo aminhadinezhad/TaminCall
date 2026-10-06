@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\Calls\Actions\RecordFollowUpAction;
 use App\Filament\Widgets\Concerns\ChartStyle;
 use App\Filament\Widgets\Concerns\ReadsReportFilters;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 /**
@@ -69,10 +70,19 @@ class SatisfactionChart extends ChartWidget
         ];
     }
 
-    protected function getOptions(): array
+    /** A bar: the customers who gave that level, for the satisfaction shown. */
+    public function openDetails(int $dataset, int $index): void
     {
-        return ChartStyle::options([
+        $this->redirect($this->reportLink([
+            'sat' => $this->filter === 'agent_satisfaction' ? 'agent_satisfaction' : 'overall_satisfaction',
+            'level' => $index + 1,
+        ]));
+    }
+
+    protected function getOptions(): RawJs
+    {
+        return ChartStyle::clickable(ChartStyle::options([
             'plugins' => ['legend' => ['display' => false]],
-        ]);
+        ]));
     }
 }

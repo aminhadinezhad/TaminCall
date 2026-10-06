@@ -6,6 +6,7 @@ use App\Enums\CustomerType;
 use App\Filament\Widgets\Concerns\ChartStyle;
 use App\Filament\Widgets\Concerns\ReadsReportFilters;
 use App\Support\Persian;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 /**
@@ -67,9 +68,19 @@ class CustomerTypeChart extends ChartWidget
         ];
     }
 
-    protected function getOptions(): array
+    /** A slice: the calls of individual, or of legal, customers. */
+    public function openDetails(int $dataset, int $index): void
     {
-        return ChartStyle::doughnutOptions();
+        $type = CustomerType::cases()[$index] ?? null;
+
+        if ($type) {
+            $this->redirect($this->reportLink(['type' => $type->value]));
+        }
+    }
+
+    protected function getOptions(): RawJs
+    {
+        return ChartStyle::clickable(ChartStyle::doughnutOptions());
     }
 
     /**

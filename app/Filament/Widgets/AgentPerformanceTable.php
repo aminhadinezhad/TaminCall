@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Pages\ReportCalls;
 use App\Filament\Widgets\Concerns\ReadsReportFilters;
 use App\Models\SalesAgent;
 use App\Support\Persian;
@@ -26,6 +27,12 @@ class AgentPerformanceTable extends TableWidget
     public static function canView(): bool
     {
         return static::managerOnly();
+    }
+
+    /** The agent's calls in the period: all of them, those with a result, or the purchases. */
+    private function agentLink(SalesAgent $agent, ?string $show = null): string
+    {
+        return ReportCalls::link(['period' => $this->periodDays(), 'agent' => $agent->id, 'show' => $show]);
     }
 
     public function table(Table $table): Table
@@ -56,10 +63,15 @@ class AgentPerformanceTable extends TableWidget
             ->defaultSort('referrals', 'desc')
             ->paginated(false)
             ->columns([
-                TextColumn::make('name')->label('کارشناس'),
-                TextColumn::make('referrals')->label('ارجاع')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable(),
-                TextColumn::make('reached')->label('پیگیری شده')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable(),
-                TextColumn::make('purchased')->label('خرید')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable(),
+                // each number opens the agent's calls it counts
+                TextColumn::make('name')->label('کارشناس')
+                    ->url(fn (SalesAgent $record): string => $this->agentLink($record)),
+                TextColumn::make('referrals')->label('ارجاع')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable()
+                    ->url(fn (SalesAgent $record): string => $this->agentLink($record)),
+                TextColumn::make('reached')->label('پیگیری شده')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable()
+                    ->url(fn (SalesAgent $record): string => $this->agentLink($record, 'results')),
+                TextColumn::make('purchased')->label('خرید')->formatStateUsing(fn ($state): string => Persian::digits($state))->sortable()
+                    ->url(fn (SalesAgent $record): string => $this->agentLink($record, 'purchases')),
                 TextColumn::make('conversion')
                     ->label('نرخ خرید')
                     ->state(fn (SalesAgent $record): string => $percent($record->purchased, $record->reached))

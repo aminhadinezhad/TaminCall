@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\ChartStyle;
 use App\Filament\Widgets\Concerns\ReadsReportFilters;
 use App\Support\Persian;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Morilog\Jalali\Jalalian;
@@ -77,9 +78,25 @@ class CallsTrendChart extends ChartWidget
         ];
     }
 
-    protected function getOptions(): array
+    /** A point: the calls received in that day, week or month; on the orange line, those that ended in a purchase. */
+    public function openDetails(int $dataset, int $index): void
     {
-        return ChartStyle::options();
+        $buckets = $this->buckets();
+
+        if (! isset($buckets[$index])) {
+            return;
+        }
+
+        $this->redirect($this->reportLink([
+            'show' => $dataset === 1 ? 'purchases' : null,
+            'from' => $buckets[$index]['start']->toDateString(),
+            'to' => ($buckets[$index + 1]['start'] ?? today()->addDay())->toDateString(),
+        ]));
+    }
+
+    protected function getOptions(): RawJs
+    {
+        return ChartStyle::clickable(ChartStyle::options());
     }
 
     /**

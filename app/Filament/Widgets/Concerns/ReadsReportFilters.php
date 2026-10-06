@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets\Concerns;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\ReportCalls;
 use App\Models\Call;
 use App\Models\FollowUp;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -35,6 +36,16 @@ trait ReadsReportFilters
     protected function periodStart(): Carbon
     {
         return today()->subDays($this->periodDays() - 1);
+    }
+
+    /**
+     * The calls behind a figure, on the report details page, with the dashboard's period and agent.
+     *
+     * @param  array<string, scalar|null>  $slice
+     */
+    protected function reportLink(array $slice = []): string
+    {
+        return ReportCalls::link(['period' => $this->periodDays(), 'agent' => $this->salesAgentId()] + $slice);
     }
 
     protected function salesAgentId(): ?int

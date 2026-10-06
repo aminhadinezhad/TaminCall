@@ -2,6 +2,9 @@
 
 namespace App\Filament\Widgets\Concerns;
 
+use Filament\Support\RawJs;
+use Illuminate\Support\Js;
+
 /**
  * One look for every report chart: Kalameh, right-to-left legend and tooltips, recessive grid,
  * thin marks. Colours are the validated two-series pair (blue, orange) and a red–gray–blue
@@ -9,6 +12,37 @@ namespace App\Filament\Widgets\Concerns;
  */
 class ChartStyle
 {
+    /**
+     * $options with a click through: the slice, bar or point under the pointer calls the widget's
+     * openDetails(dataset, index), which opens the calls behind it; the pointer is a hand over them.
+     * The widget asks the server, so the dashboard's current filters always apply.
+     */
+    public static function clickable(array $options): RawJs
+    {
+        // no double quotes in here: Filament writes chart options into a double-quoted HTML attribute
+        return RawJs::make('(() => {
+            const options = '.Js::from($options)->toHtml().';
+            // a bar answers anywhere in its column, a point anywhere near it, a slice only on itself
+            const hit = (event, chart) => {
+                const type = chart.config.type;
+                const mode = type === \'bar\' ? \'index\' : \'nearest\';
+                // a lying-down bar chart is read row by row, top to bottom; on lines the points of
+                // both series share a column, so the one nearest the pointer in both directions
+                const axis = chart.options.indexAxis === \'y\' ? \'y\' : (type === \'bar\' ? \'x\' : \'xy\');
+                return chart.getElementsAtEventForMode(event.native ?? event, mode, { intersect: type === \'doughnut\' || type === \'pie\', axis: axis }, true)[0];
+            };
+            options.onHover = (event, elements, chart) => { chart.canvas.style.cursor = hit(event, chart) ? \'pointer\' : \'default\'; };
+            options.onClick = (event, elements, chart) => {
+                const element = hit(event, chart);
+                if (! element) return;
+                let host = chart.canvas;
+                while (host && ! host.hasAttribute(\'wire:id\')) host = host.parentElement;
+                window.Livewire.find(host.getAttribute(\'wire:id\')).call(\'openDetails\', element.datasetIndex, element.index);
+            };
+            return options;
+        })()');
+    }
+
     public const BLUE = '#2a78d6';
 
     public const ORANGE = '#eb6834';

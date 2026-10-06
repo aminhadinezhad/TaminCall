@@ -41,17 +41,21 @@ class ReportOverview extends StatsOverviewWidget
 
         return [
             Stat::make('تماس های ورودی', Persian::digits($calls))
-                ->description('مشتریانی که به فروش ارجاع شدند'),
+                ->description('مشتریانی که به فروش ارجاع شدند')
+                ->url($this->reportLink()),
 
             Stat::make('نتیجه ی ثبت شده', Persian::digits($reached))
-                ->description($calls > 0 ? $percent($reached, $calls).' از تماس ها پیگیری و نتیجه ثبت شد' : 'هنوز تماسی نیست'),
+                ->description($calls > 0 ? $percent($reached, $calls).' از تماس ها پیگیری و نتیجه ثبت شد' : 'هنوز تماسی نیست')
+                ->url($this->reportLink(['show' => 'results'])),
 
             Stat::make('نرخ خرید', $percent($purchased, $reached))
                 ->description(Persian::digits($purchased).' خرید از '.Persian::digits($reached).' مشتری پیگیری شده')
-                ->color('success'),
+                ->color('success')
+                ->url($this->reportLink(['show' => 'purchases'])),
 
             Stat::make('میانگین رضایت کلی', $satisfaction ? Persian::digits(number_format($satisfaction, 1)).' از ۵' : '—')
-                ->description('از ۱ (خیلی ناراضی) تا ۵ (خیلی راضی)'),
+                ->description('از ۱ (خیلی ناراضی) تا ۵ (خیلی راضی)')
+                ->url($this->reportLink(['show' => 'results'])),
         ];
     }
 }

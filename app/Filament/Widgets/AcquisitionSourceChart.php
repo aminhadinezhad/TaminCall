@@ -6,6 +6,7 @@ use App\Enums\AcquisitionSource;
 use App\Filament\Widgets\Concerns\ChartStyle;
 use App\Filament\Widgets\Concerns\ReadsReportFilters;
 use App\Support\Persian;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 /**
@@ -66,9 +67,19 @@ class AcquisitionSourceChart extends ChartWidget
         ];
     }
 
-    protected function getOptions(): array
+    /** A slice: the calls that came by that source. */
+    public function openDetails(int $dataset, int $index): void
     {
-        return ChartStyle::doughnutOptions();
+        $source = AcquisitionSource::cases()[$index] ?? null;
+
+        if ($source) {
+            $this->redirect($this->reportLink(['source' => $source->value]));
+        }
+    }
+
+    protected function getOptions(): RawJs
+    {
+        return ChartStyle::clickable(ChartStyle::doughnutOptions());
     }
 
     /**
