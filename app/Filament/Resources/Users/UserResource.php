@@ -89,8 +89,7 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')->label('نام')->searchable()
-                    ->description(fn (User $record): ?string => $record->is_super_admin ? 'مدیر کل' : null),
+                TextColumn::make('name')->label('نام')->searchable(),
                 TextColumn::make('email')->label('ایمیل'),
                 TextColumn::make('role')->label('نقش')->badge(),
                 IconColumn::make('is_active')->label('فعال')->boolean(),
