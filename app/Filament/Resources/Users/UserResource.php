@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -89,7 +90,15 @@ class UserResource extends Resource
                 IconColumn::make('is_active')->label('فعال')->boolean(),
             ])
             ->recordActions([
-                EditAction::make(),
+                // the owner's account is saved by its owner alone: anyone else gets an error and
+                // nothing changes
+                EditAction::make()
+                    ->before(function (EditAction $action, User $record): void {
+                        if ($record->isOwnerAccountFor(auth()->user())) {
+                            Notification::make()->title('امکان ذخیره تغییرات این کاربر وجود ندارد.')->danger()->send();
+                            $action->halt();
+                        }
+                    }),
             ]);
     }
 

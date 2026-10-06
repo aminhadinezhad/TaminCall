@@ -41,6 +41,17 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    /** The owner's account: only its owner can save changes to it. */
+    public const OWNER_EMAIL = 'mohammadaminhadinezhad@gmail.com';
+
+    /** Whether $actor is someone other than the owner trying to change the owner's account. */
+    public function isOwnerAccountFor(?User $actor): bool
+    {
+        $isOwner = fn (?User $user): bool => $user && strcasecmp(trim((string) $user->getOriginal('email')), self::OWNER_EMAIL) === 0;
+
+        return $isOwner($this) && ! $isOwner($actor);
+    }
+
     /**
      * A deactivated account can no longer sign in; its past records keep its name.
      */
