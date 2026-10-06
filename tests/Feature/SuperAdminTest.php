@@ -65,10 +65,15 @@ class SuperAdminTest extends TestCase
         $plain = $this->user(UserRole::Secretary);
         $this->actingAs($this->user(UserRole::Manager));
 
+        // the row looks like any other, but its edit button only says it cannot be done
         Livewire::test(ManageUsers::class)
             ->assertCanSeeTableRecords([$boss, $plain])
             ->assertTableActionHidden('edit', $boss)
-            ->assertTableActionVisible('edit', $plain);
+            ->assertTableActionVisible('editLocked', $boss)
+            ->assertTableActionVisible('edit', $plain)
+            ->assertTableActionHidden('editLocked', $plain)
+            ->callTableAction('editLocked', $boss)
+            ->assertNotified('این کاربر را نمی توان ویرایش کرد.');
 
         $this->assertTrue($boss->fresh()->is_super_admin);
         $this->assertSame(UserRole::Manager, $boss->fresh()->role);

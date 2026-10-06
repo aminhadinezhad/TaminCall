@@ -6,10 +6,12 @@ use App\Enums\UserRole;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -94,9 +96,16 @@ class UserResource extends Resource
                 TextColumn::make('role')->label('نقش')->badge(),
                 IconColumn::make('is_active')->label('فعال')->boolean(),
             ])
+            // Every row shows the same button. On a super admin's row, for anyone but themselves, it
+            // is a look-alike that only says the account cannot be changed.
             ->recordActions([
-                // nothing to do on a super admin's row, but for themselves
                 EditAction::make()->visible(fn (User $record): bool => $record->isManageableBy(auth()->user())),
+                Action::make('editLocked')
+                    ->label(__('filament-actions::edit.single.label'))
+                    ->tableIcon(Heroicon::PencilSquare)
+                    ->color('primary')
+                    ->visible(fn (User $record): bool => ! $record->isManageableBy(auth()->user()))
+                    ->action(fn () => Notification::make()->title('این کاربر را نمی توان ویرایش کرد.')->danger()->send()),
             ]);
     }
 
