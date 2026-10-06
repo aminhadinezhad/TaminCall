@@ -39,6 +39,12 @@ class UserResource extends Resource
         return auth()->user()?->isManager() ?? false;
     }
 
+    /** A super admin's account is changed by no one but themselves. */
+    public static function canEdit($record): bool
+    {
+        return $record->isManageableBy(auth()->user());
+    }
+
     /** Accounts are switched off, never deleted, so the calls they recorded keep their name. */
     public static function canDelete($record): bool
     {
@@ -83,13 +89,15 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')->label('نام')->searchable(),
+                TextColumn::make('name')->label('نام')->searchable()
+                    ->description(fn (User $record): ?string => $record->is_super_admin ? 'مدیر کل' : null),
                 TextColumn::make('email')->label('ایمیل'),
                 TextColumn::make('role')->label('نقش')->badge(),
                 IconColumn::make('is_active')->label('فعال')->boolean(),
             ])
             ->recordActions([
-                EditAction::make(),
+                // nothing to do on a super admin's row, but for themselves
+                EditAction::make()->visible(fn (User $record): bool => $record->isManageableBy(auth()->user())),
             ]);
     }
 
