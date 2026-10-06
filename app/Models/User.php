@@ -38,35 +38,19 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
-            'is_super_admin' => 'boolean',
         ];
     }
 
     /**
-     * A deactivated account can no longer sign in; its past records keep its name. A super
-     * admin always gets in.
+     * A deactivated account can no longer sign in; its past records keep its name.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->is_active || $this->is_super_admin;
+        return $this->is_active;
     }
 
-    /** A super admin is a manager whatever their role says. */
     public function isManager(): bool
     {
-        return $this->role === UserRole::Manager || $this->is_super_admin;
-    }
-
-    /**
-     * Whether $manager may change this account. A super admin's account is theirs alone (set and
-     * taken away only by php artisan tamin:super-admin on the server).
-     */
-    public function isManageableBy(?User $manager): bool
-    {
-        if (! $manager?->isManager()) {
-            return false;
-        }
-
-        return ! $this->is_super_admin || $manager->is($this);
+        return $this->role === UserRole::Manager;
     }
 }
