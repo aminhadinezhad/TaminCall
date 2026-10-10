@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\CallStatus;
+use App\Filament\Pages\ReportCalls;
 use App\Filament\Resources\Calls\CallResource;
 use App\Models\Call;
 use App\Support\Persian;
@@ -47,7 +48,20 @@ class TodayOverview extends StatsOverviewWidget
             Stat::make('تماس های امروز', Persian::digits($receivedToday))
                 ->description('تماس های ورودی ثبت شده امروز')
                 ->descriptionIcon(Heroicon::OutlinedPhoneArrowDownLeft)
-                ->url(CallResource::getUrl('index', ['tab' => 'all'])),
+                ->url($this->receivedTodayUrl()),
         ];
+    }
+
+    /**
+     * Today's calls: for a manager exactly those, on the report details page (as today's point on
+     * the trend chart opens); a secretary, who can not open that page, keeps the calls list.
+     */
+    private function receivedTodayUrl(): string
+    {
+        if (! ReportCalls::canAccess()) {
+            return CallResource::getUrl('index', ['tab' => 'all']);
+        }
+
+        return ReportCalls::link(['from' => today()->toDateString(), 'to' => today()->addDay()->toDateString()]);
     }
 }

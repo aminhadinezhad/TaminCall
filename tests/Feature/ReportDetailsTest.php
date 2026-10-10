@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\CustomerType;
 use App\Enums\UserRole;
 use App\Filament\Pages\ReportCalls;
+use App\Filament\Resources\Calls\CallResource;
 use App\Filament\Widgets\AcquisitionSourceChart;
 use App\Filament\Widgets\AgentPerformanceTable;
 use App\Filament\Widgets\CallsTrendChart;
@@ -12,6 +13,7 @@ use App\Filament\Widgets\CustomerTypeChart;
 use App\Filament\Widgets\NoPurchaseReasonsChart;
 use App\Filament\Widgets\ReportOverview;
 use App\Filament\Widgets\SatisfactionChart;
+use App\Filament\Widgets\TodayOverview;
 use App\Models\Call;
 use App\Models\Customer;
 use App\Models\SalesAgent;
@@ -95,6 +97,26 @@ class ReportDetailsTest extends TestCase
         $response = $this->get(ReportCalls::link([]));
         $this->assertNotSame(200, $response->status());
         $this->assertFalse(ReportCalls::canAccess());
+    }
+
+    public function test_todays_calls_tile_opens_todays_calls_for_a_manager_and_the_calls_list_for_a_secretary(): void
+    {
+        $today = ['from' => today()->toDateString(), 'to' => today()->addDay()->toDateString()];
+
+        // a manager: the calls received today, the very list today's point on the trend chart opens
+        Livewire::test(TodayOverview::class)
+            ->assertSee(e(ReportCalls::link($today)), false)
+            ->assertSee('تماس های امروز');
+        // the tile's number is that list's: four today, not the one from forty days ago
+        $this->assertSame(4, ReportCalls::query($today)->count());
+        $this->assertSame(4, Call::query()->whereDate('created_at', today())->count());
+        $this->get(ReportCalls::link($today))->assertOk()->assertSee('۴ تماس')->assertDontSee('تماس قدیمی');
+
+        // a secretary can not open the report page: the tile keeps its calls list, as before
+        $this->actingAs(User::create(['name' => 'منشی', 'email' => 's@test.local', 'password' => 'secret123', 'role' => UserRole::Secretary]));
+        Livewire::test(TodayOverview::class)
+            ->assertSee(e(CallResource::getUrl('index', ['tab' => 'all'])), false)
+            ->assertDontSee('reports/calls');
     }
 
     public function test_a_hand_edited_address_still_opens_the_page(): void
